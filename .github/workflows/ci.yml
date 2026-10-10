@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: imp
+          POSTGRES_PASSWORD: imp
+          POSTGRES_DB: market
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U imp -d market" --health-interval 5s --health-retries 20
+    env:
+      PG_DSN: postgresql://imp:imp@localhost:5432/market
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "17"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip}
+      - name: Install
+        run: |
+          pip install -e ".[dev,spark,dbt]"
+      - name: Lint
+        run: ruff check pipeline tests dags
+      - name: Unit, Spark and integration tests (includes full pipeline + dbt build)
+        run: pytest -q
+      - name: dbt parse (catches broken refs/Jinja)
+        run: dbt parse --project-dir dbt --profiles-dir dbt
+
+  dags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install Airflow with official constraints
+        run: |
+          pip install "apache-airflow==3.1.0" pytest pandas numpy requests \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.1.0/constraints-3.12.txt"
+      - name: DAG integrity tests
+        env: {PYTHONPATH: pipeline, AIRFLOW__CORE__LOAD_EXAMPLES: "false"}
+        run: pytest -q tests/test_dags.py
