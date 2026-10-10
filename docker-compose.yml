@@ -1,0 +1,48 @@
+# Local stack: Postgres (warehouse + Airflow metadata) and Airflow 3 (standalone: API server,
+# scheduler, DAG processor, triggerer in one container). Spark runs in local mode inside the
+# Airflow worker; dbt runs from its own venv in the same image.
+#
+#   cp .env.example .env && docker compose up -d --build
+#   UI: http://localhost:8080  (admin password: docker compose logs airflow | grep -i password)
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${PG_USER:-imp}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-imp}
+      POSTGRES_DB: market
+    ports: ["5432:5432"]          # Power BI Desktop connects here
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-airflow-db.sql:/docker-entrypoint-initdb.d/init-airflow-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-imp} -d market"]
+      interval: 5s
+      retries: 20
+
+  airflow:
+    build: .
+    command: standalone
+    depends_on:
+      postgres: {condition: service_healthy}
+    env_file: .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: Asia/Kolkata
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${PG_USER:-imp}:${PG_PASSWORD:-imp}@postgres:5432/airflow
+      PG_DSN: postgresql://${PG_USER:-imp}:${PG_PASSWORD:-imp}@postgres:5432/market
+      LAKE_ROOT: /opt/lake
+      PYTHONPATH: /opt/imp/pipeline
+    ports: ["8080:8080"]
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./pipeline:/opt/imp/pipeline     # live code: edits apply without a rebuild
+      - ./dbt:/opt/imp/dbt
+      - lake:/opt/lake
+    mem_limit: 5g
+
+volumes:
+  pgdata:
+  lake:
