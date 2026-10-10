@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: Silver data landed by the Python loader (imp.load.postgres). One row per business key.
+    tables:
+      - name: equity_daily
+        description: NSE end-of-day equity prices (bhavcopy) with delivery data.
+        loaded_at_field: loaded_at
+        freshness:
+          warn_after: {count: 3, period: day}
+          error_after: {count: 7, period: day}
+        columns:
+          - name: trade_date
+            data_tests: [not_null]
+          - name: symbol
+            data_tests: [not_null]
+      - name: fund_nav
+        description: AMFI NAV snapshots (one file per business day).
+      - name: corp_actions
+        description: NSE corporate actions with parsed price-adjustment factors.
+      - name: portfolio_txn
+        description: Private portfolio transactions (optional; kept out of git).
+      - name: surveillance_alerts
+        description: Alerts written by the Python surveillance engine.
+      - name: pipeline_runs
+        description: One row per pipeline step execution.

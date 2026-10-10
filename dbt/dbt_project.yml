@@ -1,0 +1,41 @@
+name: imp
+version: "0.1.0"
+config-version: 2
+profile: imp
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  use_private_portfolio: false   # true = read raw.portfolio_txn (your real holdings) instead of the sample seed
+  risk_free_rate: 0.065          # annual, for Sharpe ratios
+  max_abs_adjusted_return: 0.45  # data-quality guard: larger adjusted daily moves fail a test
+
+models:
+  imp:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  imp:
+    +schema: reference
+    nse_holidays:
+      +column_types: {holiday_date: date}
+    sample_portfolio_txn:
+      +column_types: {txn_date: date}
+
+snapshots:
+  imp:
+    +target_schema: snapshots

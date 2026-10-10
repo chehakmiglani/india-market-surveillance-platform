@@ -1,0 +1,104 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: Calendar 2023-2027 with NSE trading-day flags and Indian fiscal year.
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+
+  - name: dim_stock
+    description: SCD Type 2 stock dimension (one row per attribute version).
+    columns:
+      - name: stock_sk
+        data_tests: [unique, not_null]
+      - name: symbol
+        data_tests: [not_null]
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [symbol, valid_from]
+
+  - name: dim_fund
+    columns:
+      - name: scheme_code
+        data_tests: [unique, not_null]
+      - name: asset_class
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Equity, Debt, Hybrid, Solution Oriented, Other]
+
+  - name: fact_stock_daily
+    description: One row per symbol per trading day with raw and split/bonus-adjusted prices.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [trade_date, symbol]
+    columns:
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: stock_sk
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_stock')
+                field: stock_sk
+      - name: cum_factor
+        data_tests: [not_null]
+
+  - name: fact_fund_nav
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [scheme_code, nav_date]
+    columns:
+      - name: scheme_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_fund')
+                field: scheme_code
+
+  - name: fact_portfolio_txn
+    columns:
+      - name: txn_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [buy, sell, sip]
+
+  - name: mart_portfolio_holdings
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [owner, instrument]
+    columns:
+      - name: last_price
+        data_tests: [not_null]
+
+  - name: mart_fund_performance
+    columns:
+      - name: scheme_code
+        data_tests: [unique, not_null]
+
+  - name: mart_market_daily
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [trade_date, sector]
+
+  - name: fact_surveillance_alert
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [trade_date, symbol, rule]
+    columns:
+      - name: score
+        data_tests: [not_null]
