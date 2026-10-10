@@ -1,0 +1,84 @@
+// =====================================================================================
+// Power BI measures for the India Market Intelligence & Surveillance Platform.
+// Create a blank table named "_Measures" (Enter data -> OK) and add each measure to it.
+// Display folders are given in brackets. Format strings are suggestions.
+// =====================================================================================
+
+// ---------- [Market] ------------------------------------------------------------------
+Total Turnover = SUM ( fact_stock_daily[turnover] )                                   // ₹
+Turnover (Cr) = DIVIDE ( [Total Turnover], 1e7 )                                      // 0.00 "Cr"
+Avg Daily Return = AVERAGE ( fact_stock_daily[adj_return] )                           // 0.00%
+Advances = CALCULATE ( COUNTROWS ( fact_stock_daily ), fact_stock_daily[direction] = 1 )
+Declines = CALCULATE ( COUNTROWS ( fact_stock_daily ), fact_stock_daily[direction] = -1 )
+Advance Decline Ratio = DIVIDE ( [Advances], [Declines] )                             // 0.00
+Latest Trade Date = CALCULATE ( MAX ( fact_stock_daily[trade_date] ), ALL ( fact_stock_daily ) )
+
+Last Close =
+VAR d = MAX ( fact_stock_daily[trade_date] )
+RETURN CALCULATE ( SUM ( fact_stock_daily[close] ), fact_stock_daily[trade_date] = d )
+
+// Return over whatever date range is selected (use with one stock, or as an average of stocks)
+Period Return % =
+VAR firstDay = MIN ( fact_stock_daily[trade_date] )
+VAR lastDay = MAX ( fact_stock_daily[trade_date] )
+VAR p0 = CALCULATE ( AVERAGE ( fact_stock_daily[adj_close] ), fact_stock_daily[trade_date] = firstDay )
+VAR p1 = CALCULATE ( AVERAGE ( fact_stock_daily[adj_close] ), fact_stock_daily[trade_date] = lastDay )
+RETURN DIVIDE ( p1, p0 ) - 1                                                          // 0.00%
+
+// Indian fiscal year ends 31 March
+FYTD Return % = CALCULATE ( [Period Return %], DATESYTD ( dim_date[date_day], "3/31" ) )
+MTD Return % = CALCULATE ( [Period Return %], DATESMTD ( dim_date[date_day] ) )
+
+Volatility 20D (ann.) =
+VAR lastDay = MAX ( fact_stock_daily[trade_date] )
+VAR window =
+    TOPN (
+        20,
+        FILTER ( ALL ( dim_date[date_day], dim_date[is_trading_day] ), dim_date[date_day] <= lastDay && dim_date[is_trading_day] ),
+        dim_date[date_day], DESC
+    )
+RETURN CALCULATE ( STDEV.S ( fact_stock_daily[adj_return] ), window ) * SQRT ( 252 )  // 0.0%
+
+Avg Delivery % = AVERAGE ( fact_stock_daily[deliv_per] )                              // 0.0
+
+// ---------- [Portfolio] ---------------------------------------------------------------
+Invested = SUM ( mart_portfolio_holdings[invested] )                                  // ₹ #,##0
+Market Value = SUM ( mart_portfolio_holdings[market_value] )                          // ₹ #,##0
+Unrealised P&L = [Market Value] - [Invested]                                          // ₹ #,##0
+Unrealised P&L % = DIVIDE ( [Unrealised P&L], [Invested] )                           // 0.00%
+
+// XIRR: every transaction as a dated cash flow (money in negative) + today's value as a final inflow
+Portfolio XIRR =
+VAR txns =
+    SELECTCOLUMNS ( fact_portfolio_txn, "d", fact_portfolio_txn[txn_date], "v", fact_portfolio_txn[cash_flow] )
+VAR valueToday =
+    ROW ( "d", MAX ( mart_portfolio_holdings[price_date] ), "v", [Market Value] )
+RETURN XIRR ( UNION ( txns, valueToday ), [v], [d] )                                  // 0.00%
+
+SIP Count = CALCULATE ( COUNTROWS ( fact_portfolio_txn ), fact_portfolio_txn[txn_type] = "sip" )
+
+// ---------- [Mutual funds] ------------------------------------------------------------
+Fund Return 1Y = AVERAGE ( mart_fund_performance[return_1y] )                        // 0.00%
+Fund Volatility = AVERAGE ( mart_fund_performance[ann_volatility] )                  // 0.00%
+Fund Max Drawdown = MIN ( mart_fund_performance[max_drawdown] )                      // 0.00%
+Fund Sharpe 1Y = AVERAGE ( mart_fund_performance[sharpe_1y] )                        // 0.00
+Latest NAV =
+VAR d = MAX ( fact_fund_nav[nav_date] )
+RETURN CALCULATE ( SUM ( fact_fund_nav[nav] ), fact_fund_nav[nav_date] = d )
+
+// ---------- [Surveillance] ------------------------------------------------------------
+Alerts = COUNTROWS ( fact_surveillance_alert )
+Flagged Stocks = DISTINCTCOUNT ( fact_surveillance_alert[symbol] )
+High-Risk Alerts = CALCULATE ( [Alerts], fact_surveillance_alert[score] >= 80 )
+Max Risk Score = MAX ( fact_surveillance_alert[symbol_day_max_score] )
+Alerts (Latest Day) = CALCULATE ( [Alerts], fact_surveillance_alert[trade_date] = [Latest Trade Date] )
+
+// ---------- [Data health] -------------------------------------------------------------
+Data Age (days) = DATEDIFF ( [Latest Trade Date], TODAY (), DAY )
+Failed Steps = CALCULATE ( COUNTROWS ( mart_pipeline_health ), mart_pipeline_health[status] <> "ok" )
+
+// ---------- Calculated table for row-level security (Modeling -> New table) -------------
+// Owners = DISTINCT ( UNION ( VALUES ( fact_portfolio_txn[owner] ), VALUES ( mart_portfolio_holdings[owner] ) ) )
+// Relate Owners[owner] 1-* fact_portfolio_txn[owner] and 1-* mart_portfolio_holdings[owner].
+// RLS role "Owner" on table Owners:   [owner] = LOOKUPVALUE ( UserMap[owner], UserMap[email], USERPRINCIPALNAME () )
+// Demo role "Sample only" on Owners:  [owner] = "sample"

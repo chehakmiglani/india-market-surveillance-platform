@@ -1,0 +1,26 @@
+{
+  "name": "IMP Market",
+  "dataColors": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"],
+  "background": "#fcfcfb",
+  "foreground": "#0b0b0b",
+  "tableAccent": "#2a78d6",
+  "good": "#008300",
+  "neutral": "#52514e",
+  "bad": "#e34948",
+  "maximum": "#1f5fae",
+  "center": "#e4e3df",
+  "minimum": "#b33a39",
+  "textClasses": {
+    "title": {"fontFace": "Segoe UI Semibold", "fontSize": 13, "color": "#0b0b0b"},
+    "header": {"fontFace": "Segoe UI Semibold", "fontSize": 11, "color": "#0b0b0b"},
+    "label": {"fontFace": "Segoe UI", "fontSize": 10, "color": "#52514e"},
+    "callout": {"fontFace": "Segoe UI Light", "fontSize": 28, "color": "#0b0b0b"}
+  },
+  "visualStyles": {
+    "*": {"*": {
+      "background": [{"show": true, "color": {"solid": {"color": "#ffffff"}}, "transparency": 0}],
+      "border": [{"show": false}],
+      "visualHeader": [{"show": true}]
+    }}
+  }
+}
