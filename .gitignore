@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.env
+lake/
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+logs/
+# private portfolio exports
+private/
+*.pbix.bak

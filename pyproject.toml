@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "imp"
+version = "0.1.0"
+description = "India Market Intelligence & Surveillance Platform: NSE/AMFI data pipeline (Airflow, Spark, dbt, Postgres, Power BI)"
+requires-python = ">=3.10"
+dependencies = ["pandas>=2.0", "numpy>=1.24", "requests>=2.31", "pyarrow>=14", "psycopg2-binary>=2.9"]
+
+[project.optional-dependencies]
+spark = ["pyspark>=3.5"]
+dbt = ["dbt-core>=1.8", "dbt-postgres>=1.8"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+imp = "imp.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["pipeline"]
+
+[tool.pytest.ini_options]
+pythonpath = ["pipeline"]
+testpaths = ["tests"]
+markers = ["spark: needs pyspark + Java", "integration: needs a running Postgres (PG_DSN)"]
+
+[tool.ruff]
+line-length = 150
+
+[tool.setuptools.package-data]
+imp = ["load/sql/*.sql"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["imp"]
