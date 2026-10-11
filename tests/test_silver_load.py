@@ -60,3 +60,32 @@ def test_load_is_idempotent(spark, demo_lake, pg_dsn):
         cur.execute("select count(*), count(distinct (trade_date, symbol, series)) from raw.equity_daily")
         total, distinct = cur.fetchone()
     assert total == distinct == n
+
+
+def test_pandas_engine_matches_spark(spark, demo_lake, tmp_path):
+    """The lightweight pandas engine must produce exactly the same Silver table as Spark."""
+    from imp.transform.silver_equity import build_silver as spark_build
+    from imp.transform.silver_pandas import build_silver as pandas_build
+    start, end = date(2024, 6, 24), date(2024, 7, 19)          # spans the legacy -> UDiFF switch
+    spark_build(spark, demo_lake / "bronze", tmp_path / "s", start, end)
+    r = pandas_build(demo_lake / "bronze", tmp_path / "p", start, end)
+    key = ["trade_date", "symbol", "series"]
+
+    def load(root):
+        df = pd.read_parquet(root / "equity_daily")
+        df["trade_date"] = df["trade_date"].astype(str)
+        return df.sort_values(key).reset_index(drop=True)
+    a, b = load(tmp_path / "s"), load(tmp_path / "p")
+    assert r["rows"] == len(a) == len(b) and r["dropped"] == 0
+    for c in ["symbol", "series", "isin", "company_name"]:
+        assert (a[c].fillna("") == b[c].fillna("")).all(), c
+    for c in ["open", "high", "low", "close", "prev_close", "turnover", "deliv_per"]:
+        assert (a[c] - b[c]).abs().max() < 1e-9, c
+    for c in ["volume", "trades", "deliv_qty"]:
+        assert (a[c].astype("int64") == b[c].astype("int64")).all(), c
+
+
+def test_engine_choice(monkeypatch):
+    from imp.cli import silver_engine
+    monkeypatch.setenv("SILVER_ENGINE", "pandas")
+    assert silver_engine() == "pandas"

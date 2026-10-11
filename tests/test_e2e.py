@@ -10,7 +10,11 @@ pytestmark = [pytest.mark.spark, pytest.mark.integration]
 
 
 @pytest.mark.skipif(shutil.which("dbt") is None, reason="dbt CLI not installed")
-def test_full_pipeline(pg_dsn, tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("engine", ["spark", "pandas"])
+def test_full_pipeline(engine, pg_dsn, tmp_path, monkeypatch, capsys):
+    if engine == "spark":
+        pytest.importorskip("pyspark")
+    monkeypatch.setenv("SILVER_ENGINE", engine)
     monkeypatch.setenv("PG_DSN", pg_dsn)
     monkeypatch.setenv("LAKE_ROOT", str(tmp_path / "lake"))
     from imp.cli import main

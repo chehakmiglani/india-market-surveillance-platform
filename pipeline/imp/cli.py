@@ -47,15 +47,28 @@ def step_extract(start: date, end: date, sources: list[str]) -> list[dict]:
     return out
 
 
+def silver_engine() -> str:
+    """SILVER_ENGINE=spark|pandas; default: spark when PySpark is installed, else pandas."""
+    choice = os.getenv("SILVER_ENGINE", "").strip().lower()
+    if choice in ("spark", "pandas"):
+        return choice
+    import importlib.util
+    return "spark" if importlib.util.find_spec("pyspark") else "pandas"
+
+
 def step_silver(start: date, end: date) -> dict:
-    from .transform.silver_equity import build_silver, spark_session
     from .transform.silver_small import build_corp_actions, build_nav
     s = settings()
-    spark = spark_session()
-    try:
-        eq = build_silver(spark, s.bronze, s.silver, start, end, s.symbols or None)
-    finally:
-        spark.stop()
+    if silver_engine() == "spark":
+        from .transform.silver_equity import build_silver, spark_session
+        spark = spark_session()
+        try:
+            eq = build_silver(spark, s.bronze, s.silver, start, end, s.symbols or None)
+        finally:
+            spark.stop()
+    else:
+        from .transform.silver_pandas import build_silver as build_silver_pd
+        eq = build_silver_pd(s.bronze, s.silver, start, end, s.symbols or None)
     return {"equity": eq, "nav": build_nav(s.bronze, s.silver, start, end, s.mf_schemes or None),
             "corp_actions": build_corp_actions(s.bronze, s.silver)}
 

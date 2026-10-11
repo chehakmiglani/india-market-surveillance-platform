@@ -1,0 +1,17 @@
+{
+  "name": "india-market-platform",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/java:1": {"version": "17"}
+  },
+  "forwardPorts": [8080, 5432],
+  "portsAttributes": {
+    "8080": {"label": "Airflow UI"},
+    "5432": {"label": "Postgres (warehouse)"}
+  },
+  "postCreateCommand": "pip install -e '.[dev,spark,dbt]' && cp -n .env.example .env || true",
+  "customizations": {
+    "vscode": {"extensions": ["ms-python.python", "charliermarsh.ruff", "innoverio.vscode-dbt-power-user"]}
+  }
+}

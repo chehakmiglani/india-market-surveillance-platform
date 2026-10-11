@@ -41,7 +41,47 @@ For real data, unpause `nse_daily_eod` in the Airflow UI. It backfills every tra
 so run it from a home or office connection. Then connect Power BI to `localhost:5432/market`
 (see `powerbi/README.md`).
 
-**Without Docker** (needs Java 17+ and a local Postgres):
+### Low disk space? (Docker "no space left on device" or build failures)
+
+The full image (Airflow, Java, Spark, dbt) needs about 4–5 GB, including Docker's build cache.
+Pick the lightest option that works. All three give identical results: the pandas engine is tested
+to produce exactly the same Silver table as Spark.
+
+| Option | Disk needed | Command |
+|---|---|---|
+| Full stack | ~5 GB | `docker compose up -d --build` |
+| **Lite**: Airflow without Java/Spark | ~3 GB | set `WITH_SPARK=false` in `.env`, then `docker compose up -d --build` |
+| **DB only**: Postgres in Docker, pipeline in local Python | ~0.6 GB | see below |
+
+**First, free the space Docker already uses.** Failed builds leave GBs behind.
+
+```powershell
+docker compose down
+docker system prune -af        # unused images + stopped containers
+docker builder prune -af       # build cache (often the biggest)
+docker system df               # check what's left
+```
+
+On Windows, if C: is nearly full, open Docker Desktop → *Settings → Resources → Advanced* and move the
+**disk image location** to another drive (e.g. D:), or raise the virtual disk limit.
+
+**DB-only option (Windows PowerShell)**, no Java or Spark needed:
+
+```powershell
+docker compose up -d postgres
+python -m venv .venv; .venv\Scripts\activate
+pip install -e ".[dbt]"
+$env:SILVER_ENGINE="pandas"; $env:PG_DSN="postgresql://imp:imp@localhost:5432/market"; $env:LAKE_ROOT="lake"
+python -m imp.cli run --demo --start 2024-06-03 --end 2025-07-31
+```
+
+**No space on your laptop at all? Use GitHub Codespaces.** Push the repo to GitHub, then
+*Code → Codespaces → Create codespace*. The dev container (`.devcontainer/`) installs Python, Java
+and Docker. In its terminal, run `make up && make demo`, then open the forwarded port 8080 for
+Airflow. Pick a 4-core machine if the 2-core one is slow. Codespaces hours are free up to your
+account's monthly allowance; stop the codespace when you're done.
+
+**Without Docker at all** (needs a local Postgres; Java 17+ only for the Spark engine):
 
 ```bash
 pip install -e ".[dev,spark,dbt]"

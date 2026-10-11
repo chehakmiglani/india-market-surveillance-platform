@@ -1,7 +1,21 @@
-.PHONY: up down logs demo test lint dbt-docs clean
+.PHONY: up up-lite db-only demo-native down logs demo test lint dbt-docs clean free-space
 
 up:            ## build and start Postgres + Airflow
 	docker compose up -d --build
+
+up-lite:       ## same stack without Java/Spark (smaller image; pandas Silver engine)
+	WITH_SPARK=false docker compose up -d --build
+
+db-only:       ## smallest option: only Postgres in Docker, run the pipeline natively
+	docker compose up -d postgres
+
+demo-native:   ## run the demo pipeline with local Python against the Docker Postgres
+	SILVER_ENGINE=pandas PG_DSN=postgresql://imp:imp@localhost:5432/market LAKE_ROOT=./lake \
+	  python -m imp.cli run --demo --start 2024-06-03 --end 2025-07-31
+
+free-space:    ## remove unused Docker images, build cache and stopped containers
+	docker system prune -af
+	docker builder prune -af
 
 down:
 	docker compose down

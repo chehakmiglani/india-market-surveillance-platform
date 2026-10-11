@@ -3,6 +3,8 @@
 # Airflow worker; dbt runs from its own venv in the same image.
 #
 #   cp .env.example .env && docker compose up -d --build
+#   Low on disk?  set WITH_SPARK=false in .env (no Java/Spark), or run only Postgres in Docker:
+#                 docker compose up -d postgres   and the pipeline natively (see README "Low disk space")
 #   UI: http://localhost:8080  (admin password: docker compose logs airflow | grep -i password)
 
 services:
@@ -22,7 +24,10 @@ services:
       retries: 20
 
   airflow:
-    build: .
+    build:
+      context: .
+      args:
+        WITH_SPARK: ${WITH_SPARK:-true}   # false = smaller image, pandas Silver engine
     command: standalone
     depends_on:
       postgres: {condition: service_healthy}

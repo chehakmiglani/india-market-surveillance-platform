@@ -1,0 +1,14 @@
+# Keep the build context small: only pyproject.toml and pipeline/ are copied into the image
+.git
+lake
+dbt/target
+dbt/logs
+logs
+tests
+docs
+powerbi
+**/__pycache__
+**/*.pyc
+.venv
+.env
+*.zip
