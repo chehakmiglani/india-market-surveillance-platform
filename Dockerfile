@@ -19,6 +19,10 @@ RUN python -m venv /opt/dbt-venv \
  && chown -R airflow: /opt/dbt-venv
 ENV DBT_BIN=/opt/dbt-venv/bin/dbt
 
+# The lake volume is mounted here. Creating it owned by the airflow user means a NEW named volume
+# inherits that ownership; otherwise Docker creates it root-owned and the pipeline can't write to it.
+RUN mkdir -p /opt/lake && chown -R airflow:root /opt/lake
+
 USER airflow
 COPY --chown=airflow:root pyproject.toml /opt/imp/pyproject.toml
 COPY --chown=airflow:root pipeline /opt/imp/pipeline
